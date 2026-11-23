@@ -1,5 +1,5 @@
 import { parseLinkedInPaste } from './posting-text'
-import { closed, extractedFields, extraction, positionDate, reminders, safeUrl, today, type Draft, type Job, type RecordItem } from './model'
+import { applicationNotes, closed, extractedFields, extraction, positionDate, reminders, safeUrl, today, type Draft, type Job, type RecordItem } from './model'
 
 const applications = '/api/applications'
 const legacyPrefix = 'ai-job-tracker/applications/'
@@ -122,9 +122,15 @@ export async function sharePosition(position: Draft) {
   }
 }
 
-export type Answer = { id: string; reason: string }
+type Answer = { id: string; reason: string }
+export type SearchResult = Answer[] | { count: number }
 
-export async function searchPositions(question: string, records: RecordItem[]): Promise<Answer[]> {
+export async function searchPositions(question: string, records: RecordItem[]): Promise<SearchResult> {
+  const query = question.trim().replace(/\s+/g, ' ')
+  if (/^(?:how many (?:job )?applications (?:are there|do i have)|(?:count|total) (?:my |of )?(?:job )?applications)[?.!]?$/i.test(query)) {
+    return { count: records.length }
+  }
+
   const day = today()
   const tasks = reminders(records)
   if (!records.length) return []
@@ -170,7 +176,8 @@ export async function searchPositions(question: string, records: RecordItem[]): 
   for (let offset = 0; offset < candidates.length; offset += 35) {
     const group = candidates.slice(offset, offset + 35).map(job => ({
       id: job.id, title: job.role, company: job.company, stage: job.stage, location: job.location, arrangement: job.arrangement,
-      salary: job.salary, date: positionDate(job), next: job.next, notes: job.notes.slice(0, 350),
+      salary: job.salary, date: positionDate(job), next: job.next,
+      notes: applicationNotes(job).map(note => note.text).join('\n').slice(0, 350),
       description: job.description.slice(0, 650), requirements: job.requirements.slice(0, 350), reminders: tasksByJob.get(job.id) ?? [], suggestedActions: todayMatches.get(job.id) ?? [],
     }))
     const known = new Set(group.map(job => job.id))
@@ -200,6 +207,31 @@ export async function isAiConfigured() {
     const response = await fetch('/api/ai')
     return response.ok && (await response.json()).configured === true
   } catch { return false }
+}
+
+export type TrackerSettings = {
+  databasePath: string
+  ollamaUrl: string
+  model: string
+  modelOverride: string | null
+}
+
+export async function loadSettings(): Promise<TrackerSettings> {
+  const response = await fetch('/api/settings')
+  if (!response.ok) throw await responseError(response, 'Could not load settings.')
+  return response.json()
+}
+
+export async function saveOllamaSettings(model: string | null): Promise<TrackerSettings> {
+  const response = await fetch('/api/settings/ollama', jsonRequest('PUT', { model }))
+  if (!response.ok) throw await responseError(response, 'Could not save Ollama settings.')
+  return response.json()
+}
+
+export async function loadOllamaModels(): Promise<string[]> {
+  const response = await fetch('/api/ai/models')
+  if (!response.ok) throw await responseError(response, 'Could not list installed models.')
+  return (await response.json()).models
 }
 
 async function complete(input: { systemPrompt: string; prompt: string; maxTokens: number }) {

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
-import { deleteJob, descriptionLimit, fetchPosting, isAiConfigured, loadJobs, parsePosting, saveJob, searchPositions, sharePosition, type Answer } from './data'
+import { deleteJob, descriptionLimit, fetchPosting, isAiConfigured, loadJobs, parsePosting, saveJob, searchPositions, sharePosition, type SearchResult } from './data'
 import { downloadFile, positionDetails, positionFilename, positionHtml, positionPdf } from './position'
 import { Calendar, TodayView } from './schedule'
-import { addDays, blank, closed, extractedFields, positionDate, reminders, safeUrl, stages, today, type Draft, type Entry, type Job, type RecordItem, type Reminder } from './model'
+import { SettingsDialog } from './settings'
+import { NotesPanel, type NoteDraft } from './notes'
+import { addDays, applicationNotes, blank, closed, extractedFields, positionDate, reminders, safeUrl, stages, today, type Draft, type Entry, type Job, type RecordItem, type Reminder } from './model'
 import './style.css'
 
 const dates = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' })
@@ -32,17 +34,46 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
     return initial
   })
   const [mode, setMode] = useState<'link' | 'paste' | 'manual'>('link')
+  const [tab, setTab] = useState<'details' | 'notes'>('details')
+  const [notes, setNotes] = useState(() => job ? applicationNotes(job) : [])
+  const [noteDraft, setNoteDraft] = useState<NoteDraft | null>(null)
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
   const [preview, setPreview] = useState(false)
   const [activity, setActivity] = useState('')
   const [kind, setKind] = useState('Note')
   const dialog = useRef<HTMLDialogElement>(null)
   const roleInput = useRef<HTMLInputElement>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const keepEditingButton = useRef<HTMLButtonElement>(null)
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft(existing => ({ ...existing, [key]: value }))
+  const position = { ...draft, notes: notes.map(note => note.text).join('\n\n') }
+  const originalNotes = job ? applicationNotes(job) : []
+  const pendingNoteChanged = noteDraft !== null && noteDraft.text.trim() !==
+    (notes.find(note => note.id === noteDraft.id)?.text.trim() ?? '')
+  const hasChanges = (Object.keys(blank) as (keyof Draft)[]).some(key => draft[key] !== (job?.[key] ?? blank[key])) ||
+    Boolean(activity.trim()) || notes.length !== originalNotes.length || notes.some((note, index) =>
+      note.id !== originalNotes[index]?.id || note.text !== originalNotes[index]?.text) || pendingNoteChanged
 
   useEffect(() => { dialog.current?.showModal() }, [])
+  useEffect(() => { if (confirmClose) keepEditingButton.current?.focus() }, [confirmClose])
+
+  function requestClose() {
+    if (busy) return
+    if (!hasChanges) {
+      onClose()
+      return
+    }
+    setConfirmDelete(false)
+    setConfirmClose(true)
+  }
+
+  function keepEditing() {
+    setConfirmClose(false)
+    closeButton.current?.focus()
+  }
 
   async function importJob() {
     setBusy(true)
@@ -70,13 +101,24 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
     }
   }
 
-  async function submit(e: FormEvent<HTMLFormElement>) {
+  function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (busy) return
+    if (busy || confirmClose || confirmDelete) return
+    if (pendingNoteChanged) {
+      setTab('notes')
+      setNotice('Finish or cancel the note before saving the application.')
+      return
+    }
+    void saveApplication(notes)
+  }
+
+  async function saveApplication(nextNotes: typeof notes) {
     const role = draft.role.trim()
     const company = draft.company.trim()
     const url = safeUrl(draft.url.trim())
     if (!role || !company || (draft.url.trim() && !url)) {
+      setTab('details')
+      setPreview(false)
       setNotice('Enter a role, company, and a valid posting URL if you have one.')
       return
     }
@@ -93,7 +135,7 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
     const updated: Job = {
       reminders: reminderState,
       created: job?.created ?? job?.history.find(item => item.kind === 'Added')?.date ?? job?.history[0]?.date ?? job?.updated ?? new Date().toISOString(),
-      ...draft, role, company, url, history,
+      ...draft, role, company, url, history, notes: '', noteEntries: nextNotes,
       id: job?.id ?? crypto.randomUUID(), updated: new Date().toISOString(),
     }
     try {
@@ -102,6 +144,38 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
       setNotice(errorText(error))
       setBusy(false)
     }
+  }
+
+  function notesWithDraft(draft: NoteDraft) {
+    const text = draft.text.trim()
+    const stamp = new Date().toISOString()
+    if (draft.id) {
+      return notes.map(note => note.id === draft.id && note.text !== text
+        ? { ...note, text, updated: stamp }
+        : note)
+    }
+    return [...notes, { id: crypto.randomUUID(), text, created: stamp, updated: stamp }]
+  }
+
+  function saveNote() {
+    if (!noteDraft?.text.trim()) return
+    setNotes(notesWithDraft(noteDraft))
+    setNoteDraft(null)
+    setNotice('')
+  }
+
+  function saveAndClose() {
+    setConfirmClose(false)
+    if (pendingNoteChanged && noteDraft) {
+      if (!noteDraft.text.trim()) {
+        setTab('notes')
+        setNotice('Enter note text or cancel the note edit before saving.')
+        return
+      }
+      void saveApplication(notesWithDraft(noteDraft))
+      return
+    }
+    void saveApplication(notes)
   }
 
   const fields: { key: keyof Omit<Draft, 'stage'>; label: string; type?: string; max?: number; required?: boolean }[] = [
@@ -136,9 +210,9 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
     setBusy(true)
     setNotice('')
     try {
-      if (kind === 'share') setNotice(await sharePosition(draft))
+      if (kind === 'share') setNotice(await sharePosition(position))
       else {
-        const file = kind === 'html' ? new Blob([positionHtml(draft)], { type: 'text/html;charset=utf-8' }) : await positionPdf(draft)
+        const file = kind === 'html' ? new Blob([positionHtml(position)], { type: 'text/html;charset=utf-8' }) : await positionPdf(position)
         const name = positionFilename(draft) + '.' + kind
         downloadFile(file, name)
       }
@@ -149,71 +223,108 @@ function Editor({ record, onClose, onSaved, onDeleted }: { record?: RecordItem; 
     }
   }
 
-  return <dialog ref={dialog} aria-labelledby="editor-title" onCancel={e => { e.preventDefault(); if (!busy) { if (confirmDelete) setConfirmDelete(false); else onClose() } }}>
-    <form onSubmit={submit}>
+  return <dialog ref={dialog} aria-labelledby={confirmClose ? 'unsaved-title' : 'editor-title'} onCancel={e => {
+    e.preventDefault()
+    if (busy) return
+    if (confirmClose) keepEditing()
+    else if (confirmDelete) setConfirmDelete(false)
+    else requestClose()
+  }}>
+    <form onSubmit={submit} noValidate>
       <header className="dialog-head">
         <h2 id="editor-title">{job ? 'Application details' : 'Add application'}</h2>
-        <button type="button" className="icon" aria-label="Close" onClick={onClose} disabled={busy}>×</button>
+        <button ref={closeButton} type="button" className="icon" aria-label="Close"
+          onClick={confirmClose ? keepEditing : requestClose} disabled={busy}>×</button>
       </header>
       <div className="dialog-content">
-        {!confirmDelete && <div className="actions position-tools" aria-label="Position tools">
-          <button type="button" aria-pressed={preview} disabled={busy} onClick={() => setPreview(value => !value)}>{preview ? 'Back to form' : 'Preview'}</button>
-          <button type="button" disabled={busy} onClick={() => void exportPosition('html')}>Export HTML</button>
-          <button type="button" disabled={busy} onClick={() => void exportPosition('pdf')}>Export PDF</button>
-          <button type="button" disabled={busy} onClick={() => void exportPosition('share')}>Share</button>
+        {confirmClose && <section className="delete-confirm" aria-labelledby="unsaved-title">
+          <h3 id="unsaved-title">Save changes before closing?</h3>
+          <p>You have unsaved changes to this application.</p>
+        </section>}
+        {!confirmClose && !confirmDelete && <div className="segments editor-tabs" role="tablist" aria-label="Application">
+          {(['details', 'notes'] as const).map((name, index) => <button key={name} type="button" role="tab"
+            id={`application-tab-${name}`} aria-controls={`application-panel-${name}`} aria-selected={tab === name}
+            tabIndex={tab === name ? 0 : -1} disabled={busy} onClick={() => setTab(name)}
+            onKeyDown={event => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+              event.preventDefault()
+              const next = event.key === 'Home' ? 'details' : event.key === 'End' ? 'notes' : index === 0 ? 'notes' : 'details'
+              setTab(next)
+              document.getElementById(`application-tab-${next}`)?.focus()
+            }}>{name === 'details' ? 'Details' : 'Notes'}</button>)}
         </div>}
-        {notice && <p className="notice" role="status">{notice}</p>}
-        {confirmDelete ? <section className="delete-confirm" aria-labelledby="delete-title">
+        {!confirmClose && notice && <p className="notice" role="status">{notice}</p>}
+        {!confirmClose && confirmDelete && <section className="delete-confirm" aria-labelledby="delete-title">
           <h3 id="delete-title">Delete this posting?</h3>
           <p>The posting, notes, activity, and reminders will be permanently removed.</p>
           <div className="actions">
             <button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Keep posting</button>
             <button type="button" className="danger" disabled={busy} onClick={() => void removePosition()}>{busy ? 'Deleting…' : 'Delete permanently'}</button>
           </div>
-        </section> : preview && <PositionPreview position={draft} />}
-        <fieldset disabled={busy} className={preview || confirmDelete ? 'editor-hidden' : undefined}>
-          {!job && <section className="import">
-            <div className="segments" aria-label="Add method">
-              {(['link', 'paste', 'manual'] as const).map(option => <button type="button" key={option} aria-pressed={mode === option} onClick={() => {
-                setMode(option)
-                setNotice('')
-                if (option === 'manual') roleInput.current?.focus()
-              }}>{({ link: 'Import link', paste: 'Paste description', manual: 'Enter manually' })[option]}</button>)}
-            </div>
-            {mode === 'link' && <input aria-label="URL to import" placeholder="https://company.com/jobs/role" value={draft.url} maxLength={2000} onChange={e => set('url', e.target.value)} />}
-            {mode === 'paste' && <textarea aria-label="Job description to extract" placeholder="Paste the job description here" rows={4} maxLength={descriptionLimit} value={draft.description} onChange={e => set('description', e.target.value)} />}
-            {mode !== 'manual' && <button type="button" onClick={importJob} className="secondary">{busy ? 'Reading posting...' : 'Extract job details'}</button>}
-          </section>}
-
-          <div className="form-grid">
-            {fields.map(({ key, label, type, max, required }) => <label key={key}>{label}<input ref={key === 'role' ? roleInput : undefined} name={key} type={type ?? 'text'} required={required} maxLength={max} value={draft[key]} onChange={e => set(key, e.target.value)} /></label>)}
-            <label>Status<select aria-label="Status" value={draft.stage} onChange={e => {
-              const stage = e.target.value as Draft['stage']
-              setDraft(current => ({ ...current, stage, applied: stage === 'Applied' && !current.applied ? today() : current.applied }))
-            }}>{stages.map(stage => <option key={stage}>{stage}</option>)}</select></label>
+        </section>}
+        <section role="tabpanel" id="application-panel-details" aria-labelledby="application-tab-details"
+          hidden={tab !== 'details' || confirmDelete || confirmClose}>
+          <div className="actions position-tools" aria-label="Position tools">
+            <button type="button" aria-pressed={preview} disabled={busy} onClick={() => setPreview(value => !value)}>{preview ? 'Back to form' : 'Preview'}</button>
+            <button type="button" disabled={busy} onClick={() => void exportPosition('html')}>Export HTML</button>
+            <button type="button" disabled={busy} onClick={() => void exportPosition('pdf')}>Export PDF</button>
+            <button type="button" disabled={busy} onClick={() => void exportPosition('share')}>Share</button>
           </div>
-          <label>Requirements<textarea rows={3} maxLength={extractedFields.requirements} value={draft.requirements} onChange={e => set('requirements', e.target.value)} /></label>
-          <label>Personal notes<textarea rows={3} maxLength={5000} value={draft.notes} onChange={e => set('notes', e.target.value)} /></label>
-          <details><summary>Source description</summary>
-            <textarea aria-label="Source description" rows={6} maxLength={descriptionLimit} value={draft.description} onChange={e => set('description', e.target.value)} />
-          </details>
-          {job && <section className="history">
-            <h3>Activity</h3>
+          {preview && <PositionPreview position={position} />}
+          <fieldset disabled={busy} className={preview ? 'editor-hidden' : undefined}>
+            {!job && <section className="import">
+              <div className="segments" aria-label="Add method">
+                {(['link', 'paste', 'manual'] as const).map(option => <button type="button" key={option} aria-pressed={mode === option} onClick={() => {
+                  setMode(option)
+                  setNotice('')
+                  if (option === 'manual') roleInput.current?.focus()
+                }}>{({ link: 'Import link', paste: 'Paste description', manual: 'Enter manually' })[option]}</button>)}
+              </div>
+              {mode === 'link' && <input aria-label="URL to import" placeholder="https://company.com/jobs/role" value={draft.url} maxLength={2000} onChange={e => set('url', e.target.value)} />}
+              {mode === 'paste' && <textarea aria-label="Job description to extract" placeholder="Paste the job description here" rows={4} maxLength={descriptionLimit} value={draft.description} onChange={e => set('description', e.target.value)} />}
+              {mode !== 'manual' && <button type="button" onClick={importJob} className="secondary">{busy ? 'Reading posting...' : 'Extract job details'}</button>}
+            </section>}
+
             <div className="form-grid">
-              <label>Activity type<select aria-label="Activity type" value={kind} onChange={e => setKind(e.target.value)}><option>Note</option><option>Interview</option><option>Follow-up</option></select></label>
-              <label>New activity<input value={activity} maxLength={1000} onChange={e => setActivity(e.target.value)} placeholder="Add an update" /></label>
+              {fields.map(({ key, label, type, max, required }) => <label key={key}>{label}<input ref={key === 'role' ? roleInput : undefined} name={key} type={type ?? 'text'} required={required} maxLength={max} value={draft[key]} onChange={e => set(key, e.target.value)} /></label>)}
+              <label>Status<select aria-label="Status" value={draft.stage} onChange={e => {
+                const stage = e.target.value as Draft['stage']
+                setDraft(current => ({ ...current, stage, applied: stage === 'Applied' && !current.applied ? today() : current.applied }))
+              }}>{stages.map(stage => <option key={stage}>{stage}</option>)}</select></label>
             </div>
-            <ol>{[...job.history].reverse().map(item => <li key={item.id}><span>{item.kind} · {showDate(item.date)}</span><p>{item.text}</p></li>)}</ol>
-          </section>}
-        </fieldset>
+            <label>Requirements<textarea rows={3} maxLength={extractedFields.requirements} value={draft.requirements} onChange={e => set('requirements', e.target.value)} /></label>
+            <details><summary>Source description</summary>
+              <textarea aria-label="Source description" rows={6} maxLength={descriptionLimit} value={draft.description} onChange={e => set('description', e.target.value)} />
+            </details>
+            {job && <section className="history">
+              <h3>Activity</h3>
+              <div className="form-grid">
+                <label>Activity type<select aria-label="Activity type" value={kind} onChange={e => setKind(e.target.value)}><option>Note</option><option>Interview</option><option>Follow-up</option></select></label>
+                <label>New activity<input value={activity} maxLength={1000} onChange={e => setActivity(e.target.value)} placeholder="Add an update" /></label>
+              </div>
+              <ol>{[...job.history].reverse().map(item => <li key={item.id}><span>{item.kind} · {showDate(item.date)}</span><p>{item.text}</p></li>)}</ol>
+            </section>}
+          </fieldset>
+        </section>
+        <section role="tabpanel" id="application-panel-notes" aria-labelledby="application-tab-notes"
+          hidden={tab !== 'notes' || confirmDelete || confirmClose}>
+          <NotesPanel notes={notes} draft={noteDraft} busy={busy} onEdit={setNoteDraft} onSave={saveNote}
+            onDelete={id => setNotes(existing => existing.filter(note => note.id !== id))} />
+        </section>
       </div>
       <footer className="dialog-foot">
-        {record && !confirmDelete && <button type="button" className="danger delete-trigger" disabled={busy} onClick={() => {
-          setNotice('')
-          setConfirmDelete(true)
-        }}>Delete posting</button>}
-        <button type="button" className="secondary" disabled={busy} onClick={onClose}>Cancel</button>
-        <button type="submit" className="primary" disabled={busy || preview || confirmDelete}>Save application</button>
+        {confirmClose ? <>
+          <button type="button" className="secondary" ref={keepEditingButton} onClick={keepEditing}>Keep editing</button>
+          <button type="button" className="danger" onClick={onClose}>Discard changes</button>
+          <button type="button" className="primary" onClick={saveAndClose}>Save changes</button>
+        </> : <>
+          {record && !confirmDelete && <button type="button" className="danger delete-trigger" disabled={busy} onClick={() => {
+            setNotice('')
+            setConfirmDelete(true)
+          }}>Delete posting</button>}
+          <button type="button" className="secondary" disabled={busy} onClick={requestClose}>Cancel</button>
+          <button type="submit" className="primary" disabled={busy || (tab === 'details' && preview) || confirmDelete}>Save application</button>
+        </>}
       </footer>
     </form>
   </dialog>
@@ -227,8 +338,9 @@ function App() {
   const [year, setYear] = useState('')
   const [from, setFrom] = useState('')
   const [question, setQuestion] = useState('')
-  const [answers, setAnswers] = useState<Answer[] | null>(null)
+  const [answers, setAnswers] = useState<SearchResult | null>(null)
   const [aiConfigured, setAiConfigured] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   useEffect(() => { void isAiConfigured().then(setAiConfigured) }, [])
   const [aiBusy, setAiBusy] = useState(false)
   const [aiError, setAiError] = useState('')
@@ -308,12 +420,14 @@ function App() {
   return <main>
     <header className="masthead">
       <div className="brand"><span className="mark" aria-hidden="true">↗</span> AI Job Application Tracker</div>
-      <button className="primary" onClick={() => setEditor({})}>+ Add application</button>
+      <div className="actions">
+        <button onClick={() => setSettingsOpen(true)}>Settings</button>
+        <button className="primary" onClick={() => setEditor({})}>+ Add application</button>
+      </div>
     </header>
     <section className="hero">
       <h1>Your job search</h1>
       <p>Track applications, interviews, and what comes next.</p>
-      <p className="preview">Applications are saved in this browser.</p>
     </section>
     <section className="stats" aria-label="Application totals">
       <article><span>Active applications</span><strong>{active.length}</strong></article>
@@ -329,12 +443,13 @@ function App() {
           <button className="primary" type="submit" disabled={aiBusy || loading || !question.trim()}>{aiBusy ? 'Searching…' : 'Ask'}</button>
         </div>
       </form>
-      {!aiConfigured && <small>Keyword and due-date matching. Configure a local model to enable AI search.</small>}
+      {!aiConfigured && <small>AI search is off. <button type="button" className="text-button" onClick={() => setSettingsOpen(true)}>Choose an Ollama model</button></small>}
       {aiError && <p role="alert" className="notice">{aiError}</p>}
       {answers && <section aria-label="Search results" className="ask-results">
-        <div className="task-header"><h2>Matches</h2><button onClick={() => setAnswers(null)}>Clear results</button></div>
-        {!answers.length && <p>No applications match this question.</p>}
-        {answers.length > 0 && <ul>{answers.map(answer => {
+        <div className="task-header"><h2>{Array.isArray(answers) ? 'Matches' : 'Application total'}</h2><button onClick={() => setAnswers(null)}>Clear results</button></div>
+        {!Array.isArray(answers) && <p>{answers.count} saved {answers.count === 1 ? 'application' : 'applications'}.</p>}
+        {Array.isArray(answers) && !answers.length && <p>No applications match this question.</p>}
+        {Array.isArray(answers) && answers.length > 0 && <ul>{answers.map(answer => {
           const item = records.find(record => record.job.id === answer.id)
           return item && <li key={answer.id}><button className="text-button" onClick={() => openPosition(item)}>{item.job.role} · {item.job.company}</button><p>{answer.reason}</p></li>
         })}</ul>}
@@ -377,6 +492,7 @@ function App() {
         </li>
       })}</ul>}
     </section>
+    {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} onSaved={setAiConfigured} />}
     {editor && <Editor record={editor.record} onClose={() => setEditor(null)} onDeleted={id => {
       setRecords(existing => existing.filter(item => item.job.id !== id))
       setAnswers(null)

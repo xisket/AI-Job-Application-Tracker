@@ -13,8 +13,15 @@ export const blank = {
 }
 export type Draft = typeof blank
 export type Entry = { id: string; date: string; kind: string; text: string }
-export type Job = Draft & { id: string; updated: string; created?: string; history: Entry[]; reminders?: Record<string, { done?: boolean; snoozed?: string }> }
+export type ApplicationNote = { id: string; text: string; created: string | null; updated: string | null }
+export type Job = Draft & { id: string; updated: string; created?: string; history: Entry[]; noteEntries?: ApplicationNote[]; reminders?: Record<string, { done?: boolean; snoozed?: string }> }
 export type RecordItem = { job: Job; etag?: string }
+
+export function applicationNotes(job: Job): ApplicationNote[] {
+  return job.noteEntries ?? (job.notes.trim()
+    ? [{ id: job.id, text: job.notes, created: null, updated: null }]
+    : [])
+}
 
 export function safeUrl(value: string) {
   try {

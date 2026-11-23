@@ -18,7 +18,7 @@ builder.Services.AddHttpClient<PostingImporter>()
     .ConfigurePrimaryHttpMessageHandler(PostingImporter.CreateHandler);
 builder.Services.AddHttpClient<LocalAi>(client =>
 {
-    client.BaseAddress = new Uri("http://127.0.0.1:11434");
+    client.BaseAddress = new Uri(LocalAi.ServerUrl);
     client.Timeout = TimeSpan.FromMinutes(2);
 }).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
@@ -113,6 +113,11 @@ app.MapPost("/api/posting-imports", async (PostingRequest input, PostingImporter
     .Produces<ApiError>(422);
 
 app.MapGet("/api/ai", (LocalAi ai) => new AiStatus(ai.Configured)).WithTags("Local AI");
+app.MapGet("/api/ai/models", (LocalAi ai, CancellationToken cancel) => ai.ListModels(cancel))
+    .WithTags("Local AI")
+    .Produces<OllamaModels>()
+    .ProducesProblem(502)
+    .ProducesProblem(504);
 app.MapPost("/api/ai/completions", (AiRequest input, LocalAi ai, CancellationToken cancel) => ai.Complete(input, cancel))
     .WithTags("Local AI")
     .Produces<AiCompletion>()
@@ -120,6 +125,11 @@ app.MapPost("/api/ai/completions", (AiRequest input, LocalAi ai, CancellationTok
     .ProducesProblem(502)
     .ProducesProblem(503)
     .ProducesProblem(504);
+app.MapGet("/api/settings", (LocalAi ai) => ai.Settings()).WithTags("Settings");
+app.MapPut("/api/settings/ollama", (OllamaSettings input, LocalAi ai) => ai.SaveSettings(input))
+    .WithTags("Settings")
+    .Produces<TrackerSettings>()
+    .ProducesProblem(400);
 app.Run();
 
 static IResult InvalidJob() => Results.Problem("Invalid application data or ID.", statusCode: 400);

@@ -101,7 +101,7 @@ X-Tracker-Request: 1
 GET {{baseUrl}}/api/ai
 Accept: application/json
 
-### Request an Ollama completion (200, or 503 if OLLAMA_MODEL is unset)
+### Request an Ollama completion (200, or 503 if AI is disabled or no model is configured)
 POST {{baseUrl}}/api/ai/completions
 Content-Type: application/json
 X-Tracker-Request: 1
@@ -110,4 +110,23 @@ X-Tracker-Request: 1
   "system": "Summarize job postings in one sentence.",
   "prompt": "A hybrid backend engineer role in Madrid requires C#, ASP.NET Core, and SQL.",
   "maxTokens": 150
+}
+
+### List installed Ollama models (200 if Ollama is running)
+GET {{baseUrl}}/api/ai/models
+Accept: application/json
+
+### Read application settings (200)
+GET {{baseUrl}}/api/settings
+Accept: application/json
+
+### Save an Ollama model (200)
+# This changes the model used by the app. Replace the tag with an installed model.
+# Send an empty string to disable AI or null to restore the server default.
+PUT {{baseUrl}}/api/settings/ollama
+Content-Type: application/json
+X-Tracker-Request: 1
+
+{
+  "model": "llama3.2:3b"
 }

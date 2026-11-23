@@ -16,7 +16,6 @@ main{max-width:1180px;margin:auto;padding:28px clamp(16px,5vw,64px) 48px}
 h1,h2,h3,p{margin:0}
 h1{font-size:clamp(37px,7vw,62px);font-weight:680;letter-spacing:-.065em;line-height:1.05}
 .hero p,.empty p{margin-top:10px;color:var(--muted)}
-.hero .preview{font-size:12px}
 button,input,select,textarea{border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--card);padding:9px 12px}
 .primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:730}
 .secondary{font-weight:650}
@@ -54,6 +53,24 @@ dialog form{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:c
 .dialog-head{border-bottom:1px solid var(--line)}
 .dialog-foot{border-top:1px solid var(--line);justify-content:flex-end}
 .dialog-content{overflow:auto;padding:16px 20px}
+.editor-tabs{margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.editor-tabs button[aria-selected=true]{background:var(--soft)}
+.editor-tabs~.notice{margin-bottom:12px}
+.note-list{display:grid;gap:10px;list-style:none;margin:0;padding:0}
+.note-list li,.note-composer{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:8px}
+.note-list p{white-space:pre-wrap;overflow-wrap:anywhere}
+.note-info{position:relative;margin-inline-start:auto}
+.note-info button{display:grid;place-items:center;border-radius:50%;width:32px;height:32px;padding:0;font-weight:700}
+.note-dates{display:none;position:absolute;z-index:1;inset-inline-end:0;bottom:100%;width:max-content;max-width:220px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.note-info:hover .note-dates,.note-info:focus-within .note-dates{display:grid;gap:4px}
+.settings-content,.settings-content section{display:grid;gap:12px}
+.settings-content{gap:20px}
+.settings-content section+section{border-top:1px solid var(--line);padding-top:16px}
+.settings-content section>p{color:var(--muted)}
+.settings-content code{overflow-wrap:anywhere}
+.settings-path{display:block;background:var(--soft);border-radius:8px;padding:10px 12px}
+.settings-content ol{padding-inline-start:24px;margin-bottom:0}
+.settings-content li+li{margin-top:6px}
 fieldset{display:grid;gap:12px;padding:0;margin:0;border:0;min-width:0}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 label{display:grid;gap:5px;font-size:13px;font-weight:680}

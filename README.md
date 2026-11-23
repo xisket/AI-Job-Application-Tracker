@@ -21,7 +21,7 @@ npm run dev
 
 Open the address printed by Vite, usually http://localhost:5173. Vite proxies API requests to http://127.0.0.1:5080. To try the production frontend build, keep the API running and use npm run build followed by npm run preview.
 
-The API saves applications in server/data/applications.db by default. Set TRACKER_DB_PATH before starting the API to use another file. If you have applications from the previous version, open the app at the same address in the same browser profile. It imports each saved record once and keeps the original browser copy.
+Open **Settings** in the frontend to see the active database path. The default is `server/data/applications.db`. Set `TRACKER_DB_PATH` before starting the API to use another file. If you have applications from the previous version, open the app at the same address in the same browser profile. It imports each saved record once and keeps the original browser copy.
 
 ## REST API
 
@@ -36,13 +36,18 @@ The [API address](http://127.0.0.1:5080/) opens Swagger UI. You can also downloa
 | DELETE /api/applications/{id} | Delete an application |
 | POST /api/posting-imports | Extract details from a public posting URL |
 | GET /api/ai | Check whether an Ollama model is configured |
+| GET /api/ai/models | List installed Ollama models |
 | POST /api/ai/completions | Request a local model completion |
+| GET /api/settings | Read the active database path and Ollama preferences |
+| PUT /api/settings/ollama | Set the model, disable AI, or restore the server default |
 
 Send JSON with POST and PUT requests. Send X-Tracker-Request: 1 with each write request. Application responses include an etag value. Send that value in the If-Match header for updates and deletes. The API returns 412 when the record has changed since you read it.
 
 ## Optional local AI
 
-Install and start [Ollama](https://ollama.com/), then download a model. In the PowerShell window where you start the API, set the model name:
+Open **Settings** for installation and model download steps. After starting [Ollama](https://ollama.com/) on the API host, check the connection, select an installed model or enter its tag, and save. The choice is saved in SQLite and takes effect immediately. You can also disable AI there.
+
+The **Use server default** option reads `OLLAMA_MODEL` from the API environment. To set that default in PowerShell before starting the API:
 
 ~~~powershell
 $env:OLLAMA_MODEL = "<installed-model-name>"
@@ -56,4 +61,5 @@ Ollama handles free-form text extraction and natural-language search. Recognized
 - Filter applications by year, date, and status. Open a day in the calendar to see its positions.
 - Complete or snooze reminders, or export them to a calendar.
 - Preview postings, share them where the browser supports it, and export HTML or PDF.
-- Keep notes and history, and delete postings with confirmation.
+- Use the Notes tab to add, edit, and delete timestamped notes. Click **Save application** to keep the changes. SQLite stores each note in the `application_notes` table and links it to its application. Existing notes move to that table automatically when the API starts. Older personal notes without timestamps show unknown dates.
+- View application activity and delete postings with confirmation.
