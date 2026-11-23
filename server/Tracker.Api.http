@@ -1,0 +1,113 @@
+@baseUrl = https://127.0.0.1:56902
+@sampleId = 71c685c3-2041-4e92-8efd-a4ce345e3ac9
+@postingUrl = https://jobs.lever.co/leverdemo-8/ef3aa148-25f7-4f68-a5cf-ef221c16318a
+
+# Run the application requests in order. Delete removes the sample so you can repeat the flow.
+# If the sample ID already exists, choose a fresh UUID before starting.
+
+### List applications (200)
+GET {{baseUrl}}/api/applications
+Accept: application/json
+
+### Create an application (201)
+# @name createApplication
+POST {{baseUrl}}/api/applications
+Content-Type: application/json
+X-Tracker-Request: 1
+
+{
+  "id": "{{sampleId}}",
+  "role": "C# Backend Engineer",
+  "company": "Example Company",
+  "location": "Madrid, Spain",
+  "arrangement": "Hybrid",
+  "salary": "",
+  "deadline": "2026-12-18",
+  "requirements": "C#, ASP.NET Core, and SQL",
+  "url": "",
+  "description": "Build and maintain REST APIs for a product team.",
+  "posted": "2026-11-23",
+  "applied": "",
+  "notes": "Review before applying.",
+  "next": "Tailor CV",
+  "due": "2026-11-25",
+  "interview": "",
+  "stage": "Saved",
+  "created": "2026-11-23T09:00:00Z",
+  "updated": "2026-11-23T09:00:00Z",
+  "history": [
+    { "id": "b7e7b2ab-5846-4768-9852-d9226b364652", "date": "2026-11-23T09:00:00Z", "kind": "Added", "text": "Saved the posting." }
+  ]
+}
+
+### Read the sample application (200)
+GET {{baseUrl}}{{createApplication.response.headers.Location}}
+Accept: application/json
+
+### Replace the sample application (200)
+# @name updateApplication
+PUT {{baseUrl}}{{createApplication.response.headers.Location}}
+Content-Type: application/json
+X-Tracker-Request: 1
+If-Match: {{createApplication.response.headers.ETag}}
+
+{
+  "id": "{{sampleId}}",
+  "role": "C# Backend Engineer",
+  "company": "Example Company",
+  "location": "Madrid, Spain",
+  "arrangement": "Hybrid",
+  "salary": "",
+  "deadline": "2026-12-18",
+  "requirements": "C#, ASP.NET Core, and SQL",
+  "url": "",
+  "description": "Build and maintain REST APIs for a product team.",
+  "posted": "2026-11-23",
+  "applied": "2026-11-25",
+  "notes": "Sent a tailored CV.",
+  "next": "Follow up",
+  "due": "2026-12-02",
+  "interview": "",
+  "stage": "Applied",
+  "created": "2026-11-23T09:00:00Z",
+  "updated": "2026-11-25T10:00:00Z",
+  "history": [
+    { "id": "b7e7b2ab-5846-4768-9852-d9226b364652", "date": "2026-11-23T09:00:00Z", "kind": "Added", "text": "Saved the posting." },
+    { "id": "bb1cf4cd-41c1-4cc4-bdc4-191ae970c448", "date": "2026-11-25T10:00:00Z", "kind": "Note", "text": "Submitted the application." }
+  ]
+}
+
+### Try deleting with the old ETag after updating (412)
+DELETE {{baseUrl}}{{createApplication.response.headers.Location}}
+X-Tracker-Request: 1
+If-Match: {{createApplication.response.headers.ETag}}
+
+### Delete the sample using its current ETag (204)
+DELETE {{baseUrl}}{{createApplication.response.headers.Location}}
+X-Tracker-Request: 1
+If-Match: {{updateApplication.response.headers.ETag}}
+
+### Import a public posting (200, or 422 if the posting is unavailable)
+# Replace postingUrl if the example posting expires.
+POST {{baseUrl}}/api/posting-imports
+Content-Type: application/json
+X-Tracker-Request: 1
+
+{
+  "url": "{{postingUrl}}"
+}
+
+### Check whether Ollama is configured (200)
+GET {{baseUrl}}/api/ai
+Accept: application/json
+
+### Request an Ollama completion (200, or 503 if OLLAMA_MODEL is unset)
+POST {{baseUrl}}/api/ai/completions
+Content-Type: application/json
+X-Tracker-Request: 1
+
+{
+  "system": "Summarize job postings in one sentence.",
+  "prompt": "A hybrid backend engineer role in Madrid requires C#, ASP.NET Core, and SQL.",
+  "maxTokens": 150
+}
