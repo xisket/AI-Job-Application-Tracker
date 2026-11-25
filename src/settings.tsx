@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { loadOllamaModels, loadSettings, saveOllamaSettings, type TrackerSettings } from './data'
+import { OllamaActivityDialog } from './ollama-activity'
 
 const presets = ['llama3.2:3b', 'qwen2.5:3b']
 type ModelMode = 'default' | 'custom' | 'off'
@@ -18,6 +19,7 @@ export function SettingsDialog({ onClose, onSaved }: {
   const [checking, setChecking] = useState(false)
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
+  const [activityOpen, setActivityOpen] = useState(false)
 
   function applySettings(current: TrackerSettings) {
     setSettings(current)
@@ -62,7 +64,7 @@ export function SettingsDialog({ onClose, onSaved }: {
     }
   }
 
-  return <dialog ref={dialog} aria-labelledby="settings-title" onCancel={event => {
+  return <><dialog ref={dialog} aria-labelledby="settings-title" onCancel={event => {
     event.preventDefault()
     if (!saving) onClose()
   }}>
@@ -88,6 +90,7 @@ export function SettingsDialog({ onClose, onSaved }: {
               <button type="button" onClick={() => void refreshModels()} disabled={checking || saving}>
                 {checking ? 'Checking…' : 'Check connection and refresh models'}
               </button>
+              <button type="button" onClick={() => setActivityOpen(true)}>Ollama activity</button>
             </div>
             <small role="status">{checking ? 'Connecting to Ollama…' : connectionError ||
               (models ? `Connected. ${models.length} installed ${models.length === 1 ? 'model' : 'models'}.` : '')}</small>
@@ -137,5 +140,5 @@ export function SettingsDialog({ onClose, onSaved }: {
         </button>
       </footer>
     </form>
-  </dialog>
+  </dialog>{activityOpen && <OllamaActivityDialog onClose={() => setActivityOpen(false)} />}</>
 }

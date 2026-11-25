@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Job Tracker LinkedIn Import",
+  "version": "1.0.7",
+  "description": "Read LinkedIn job postings in the browser profile running the local tracker.",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://www.linkedin.com/jobs/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["http://localhost/*", "http://127.0.0.1/*"],
+    "js": ["bridge.js"]
+  }]
+}

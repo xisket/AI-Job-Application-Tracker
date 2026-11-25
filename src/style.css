@@ -12,6 +12,16 @@ main{max-width:1180px;margin:auto;padding:28px clamp(16px,5vw,64px) 48px}
 .masthead{border-bottom:1px solid var(--line);padding-bottom:20px}
 .brand{font-size:14px;font-weight:700}
 .mark,.company-icon{display:grid;place-items:center;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:800;width:36px;height:36px;flex:none}
+.company-icon img{width:100%;height:100%;object-fit:contain;border-radius:inherit;background:var(--card)}
+.company-logo-trigger{display:flex;align-items:center;gap:8px;width:max-content}
+.company-field{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:end;gap:8px}
+.company-logo-dialog{width:min(460px,calc(100% - 24px))}
+.company-logo-options{display:grid;gap:12px}
+.company-logo-options input[type=file]{max-width:100%;padding:5px}
+@media (hover:hover) and (pointer:fine){
+  .company-logo-change{opacity:0}
+  .company-logo-trigger:hover .company-logo-change,.company-logo-trigger:focus-within .company-logo-change{opacity:1}
+}
 .hero{padding:36px 0 23px}
 h1,h2,h3,p{margin:0}
 h1{font-size:clamp(37px,7vw,62px);font-weight:680;letter-spacing:-.065em;line-height:1.05}
@@ -40,6 +50,7 @@ button:not(:disabled):hover{filter:brightness(.93)}
 .applications li:last-child{border:0}
 .job{display:grid;align-items:center;grid-template-columns:auto minmax(0,1fr) 108px minmax(100px,1fr) auto;gap:12px;width:100%;text-align:left;border:0;padding:13px 6px 6px}
 .identity,.next{display:grid;gap:4px;overflow-wrap:anywhere}
+.application-facts{display:flex;flex-wrap:wrap;gap:3px 12px}
 small{color:var(--muted)}
 .pill{justify-self:start;background:var(--soft);padding:5px 8px;border-radius:20px;font-size:12px;font-weight:650}
 .pill[data-stage=Offer],.pill[data-stage=Accepted]{background:var(--accent);color:var(--accent-ink)}
@@ -60,9 +71,47 @@ dialog form{display:grid;grid-template-rows:auto minmax(0,1fr) auto;max-height:c
 .note-list li,.note-composer{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:8px}
 .note-list p{white-space:pre-wrap;overflow-wrap:anywhere}
 .note-info{position:relative;margin-inline-start:auto}
-.note-info button{display:grid;place-items:center;border-radius:50%;width:32px;height:32px;padding:0;font-weight:700}
+.note-icon{display:grid;place-items:center;border-radius:50%;width:32px;height:32px;padding:0;font-weight:700}
+@media (hover:hover) and (pointer:fine){
+  .note-action{opacity:0}
+  .note-list li:hover .note-action,.note-list li:focus-within .note-action{opacity:1}
+}
+.rich-description{display:grid;gap:8px;margin-top:10px}
+.rich-label{font-weight:680;font-size:13px}
+.rich-toolbar button{padding:4px 9px}
+.rich-editable{min-height:150px;max-height:380px;overflow:auto;padding:10px 12px;border:1px solid var(--line);border-radius:8px;overflow-wrap:anywhere}
+.rich-editable :is(p,ul,ol),.rich-preview :is(p,ul,ol){margin-block:6px}
+.bulk-row{display:flex;align-items:center;gap:8px}
+.bulk-row .job{flex:1;min-width:0}
+.bulk-delete-tools{padding:10px 13px;border-bottom:1px solid var(--line)}
 .note-dates{display:none;position:absolute;z-index:1;inset-inline-end:0;bottom:100%;width:max-content;max-width:220px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 .note-info:hover .note-dates,.note-info:focus-within .note-dates{display:grid;gap:4px}
+.bulk-import{width:min(1200px,calc(100% - 24px))}
+.bulk-content{display:grid;gap:12px}
+.bulk-paste{display:grid;gap:8px}
+.bulk-linkedin-setup{padding:10px 12px;border:1px solid var(--line);border-radius:8px}
+.bulk-linkedin-setup summary{font-weight:650}
+.bulk-linkedin-setup ol{padding-inline-start:24px;line-height:1.5}
+.bulk-content input[type=file]{width:min(100%,32rem)}
+.bulk-grid{overflow:auto;max-height:55dvh;border:1px solid var(--line);border-radius:8px}
+.bulk-grid table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.bulk-grid :is(th,td){text-align:start;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)}
+.bulk-grid th{position:sticky;top:0;background:var(--soft);z-index:1;min-width:95px}
+.bulk-grid th:first-child{min-width:0}
+.bulk-grid th:last-child{min-width:210px}
+.bulk-grid th small{display:block;font-weight:400}
+.bulk-grid td{overflow-wrap:anywhere}
+.bulk-grid td:nth-child(2),.bulk-grid td:nth-child(7){white-space:nowrap}
+.bulk-grid details{margin-top:4px}
+.bulk-grid dl,.bulk-grid ol{margin-block:8px}
+.bulk-grid dd{margin-inline-start:0;white-space:pre-wrap}
+.bulk-grid dt{font-weight:680}
+.fill-ai-grid th:nth-child(2){min-width:160px}
+.fill-ai-grid th:nth-child(4){min-width:240px}
+.fill-ai-grid dd{margin-bottom:6px}
+.ollama-activity{display:grid;grid-template-rows:auto minmax(0,1fr);max-height:calc(100dvh - 26px)}
+.ollama-activity pre{margin:6px 0 0;padding:10px;background:var(--soft);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto}
+.ollama-activity .bulk-grid th:last-child{min-width:80px}
 .settings-content,.settings-content section{display:grid;gap:12px}
 .settings-content{gap:20px}
 .settings-content section+section{border-top:1px solid var(--line);padding-top:16px}
@@ -163,6 +212,13 @@ main {
 .calendar, .today { padding: clamp(10px, 4vw, 22px); }
 .calendar-header, .task-header { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .calendar-header h2 { font-size: clamp(16px, 4vw, 24px); text-align: center; }
+.calendar-scales{margin:0 0 10px;justify-content:center}
+.calendar-year{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px;margin-top:12px}
+.calendar-month-card{min-width:0;padding:8px;border:1px solid var(--line);border-radius:10px}
+.calendar-month-card h3 button{width:100%;text-align:start;font-size:14px;font-weight:700}
+.calendar-mini-grid button,.calendar-mini-grid .calendar-blank{min-height:27px;min-width:0;align-items:center}
+.calendar-mini-grid button{border-color:transparent}
+.calendar-grid button[aria-current=date]{outline:1px solid currentColor;outline-offset:-2px}
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 8px; }
 .calendar-grid .weekday { text-align: center; font-size: 12px; color: var(--muted); padding-block: 6px; }
 .calendar-grid button, .calendar-blank { border-radius: 0; padding: 3px 0; display: grid; justify-items: center; min-width: 0; min-height: 44px; }

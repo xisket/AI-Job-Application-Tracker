@@ -143,20 +143,26 @@ sealed class PostingImporter(HttpClient client)
         var amount = Scalar(value) ?? Scalar(Property(value, "value")) ??
             Join(" - ", new[] { Scalar(Property(value, "minValue")), Scalar(Property(value, "maxValue")) });
         var deadline = String(Property(job, "validThrough")) ?? "";
+        var posted = String(Property(job, "datePosted")) ?? "";
+        var organization = Property(job, "hiringOrganization");
+        var logo = Property(organization, "logo");
         return new
         {
             fields = new
             {
                 role = Plain(String(Property(job, "title"))),
-                company = String(Property(Property(job, "hiringOrganization"), "name")),
+                company = String(Property(organization, "name")),
                 location = Join(" / ", places),
                 arrangement = String(Property(job, "jobLocationType")) == "TELECOMMUTE" ? "Remote" : "",
                 salary = amount.Length == 0 ? "" : Join(" ", new[]
                     { String(Property(salary, "currency")), amount, String(Property(value, "unitText")) }),
                 deadline = deadline[..Math.Min(10, deadline.Length)],
+                posted = posted[..Math.Min(10, posted.Length)],
                 requirements = Plain(String(Property(job, "qualifications")))
             },
-            text = TrimDescription(Plain(String(Property(job, "description"))))
+            text = TrimDescription(Plain(String(Property(job, "description")))),
+            html = TrimHtml(String(Property(job, "description")) ?? ""),
+            logo = String(logo) ?? String(Property(logo, "url"))
         };
     }
 
@@ -185,7 +191,8 @@ sealed class PostingImporter(HttpClient client)
                 arrangement = Text(posting?.SelectSingleNode(WithClass("*", "job-info-office"))),
                 requirements = Join("\n", requirements)
             },
-            text = TrimDescription(text.Length == 0 ? Text(description) : text)
+            text = TrimDescription(text.Length == 0 ? Text(description) : text),
+            html = TrimHtml(description.InnerHtml)
         };
     }
 
@@ -202,6 +209,7 @@ sealed class PostingImporter(HttpClient client)
         string.Join(separator, values.Where(value => !string.IsNullOrWhiteSpace(value)));
     private static string Text(HtmlNode? node) => WebUtility.HtmlDecode(node?.InnerText ?? "").Trim();
     private static string TrimDescription(string text) => text[..Math.Min(text.Length, DescriptionLimit)];
+    private static string TrimHtml(string html) => html[..Math.Min(html.Length, 120_000)];
 
     private static string Plain(string? html)
     {

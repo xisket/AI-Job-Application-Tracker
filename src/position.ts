@@ -1,4 +1,5 @@
 import { safeUrl, type Draft } from './model'
+import { descriptionMarkup } from './description-html'
 
 export function positionDetails(position: Draft) {
   return {
@@ -30,7 +31,9 @@ export function positionHtml(position: Draft) {
     html(title) + '</h1><p>' + html(company) + '</p></header><dl>' +
     facts.map(([label, value]) => '<div><dt>' + html(label) + '</dt><dd>' + html(value) + '</dd></div>').join('') +
     '</dl>' + (url ? '<p><a href="' + html(url) + '">View original posting</a></p>' : '') +
-    sections.map(([label, value]) => '<section><h2>' + html(label) + '</h2><p>' + html(value) + '</p></section>').join('') +
+    sections.map(([label, value]) => '<section><h2>' + html(label) + '</h2>' +
+      (label === 'Job description' ? '<div>' + descriptionMarkup(value, position.descriptionHtml) + '</div>' : '<p>' + html(value) + '</p>') +
+      '</section>').join('') +
     '</main></body></html>'
 }
 

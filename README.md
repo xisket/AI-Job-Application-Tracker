@@ -35,9 +35,12 @@ The [API address](http://127.0.0.1:5080/) opens Swagger UI. You can also downloa
 | PUT /api/applications/{id} | Replace an application |
 | DELETE /api/applications/{id} | Delete an application |
 | POST /api/posting-imports | Extract details from a public posting URL |
+| POST /api/application-imports/preview | Preview a CSV or Excel file uploaded as multipart field `file` |
 | GET /api/ai | Check whether an Ollama model is configured |
 | GET /api/ai/models | List installed Ollama models |
 | POST /api/ai/completions | Request a local model completion |
+| GET /api/ai/activity | List tracked Ollama calls, newest first |
+| GET /api/ai/activity/{id} | Read the full prompts and response for one call |
 | GET /api/settings | Read the active database path and Ollama preferences |
 | PUT /api/settings/ollama | Set the model, disable AI, or restore the server default |
 
@@ -56,10 +59,25 @@ dotnet run --project server
 
 Ollama handles free-form text extraction and natural-language search. Recognized pasted formats, structured public posting links, and keyword and due-date matching also work without a model.
 
+Use **Fill with AI** to scan saved job descriptions for missing posting details. Review the suggested values and choose which applications to update. Existing field values are kept.
+
+Open **Settings → Ollama activity** to review prompt and response history. The tracker stores the full system prompt, user prompt, raw Ollama response, and any error in SQLite. Prompts can include job descriptions and notes. Logging begins after you restart the API with this feature.
+
 ## Features
 
 - Filter applications by year, date, and status. Open a day in the calendar to see its positions.
+- Use **Select applications** in the main list to delete multiple visible applications at once.
 - Complete or snooze reminders, or export them to a calendar.
 - Preview postings, share them where the browser supports it, and export HTML or PDF.
+- Applications for the same company share a logo stored in the SQLite `companies` table. Paste an image or its URL into the company logo field, upload a file, or import the logo from a supported posting. The list shows the logo when available and the company's initial otherwise.
+- Format job descriptions with headings, emphasis, and lists. The application preview and HTML export preserve supported formatting.
 - Use the Notes tab to add, edit, and delete timestamped notes. Click **Save application** to keep the changes. SQLite stores each note in the `application_notes` table and links it to its application. Existing notes move to that table automatically when the API starts. Older personal notes without timestamps show unknown dates.
 - View application activity and delete postings with confirmation.
+- Use **Import spreadsheet** to preview and select rows from a LinkedIn Applications CSV or an Excel `.xlsx` worksheet with the same headings. Application Date accepts the export's month/day/year format or ISO dates and keeps a time when supplied. Each pipe-separated Question And Answers entry becomes a note. Contact details and resume names are shown in the preview only.
+- The import checks public posting URLs for additional job details. For a posting that requires sign-in, use **Open in this browser** and **Paste posting text** in the preview. If a posting is unavailable, you can still import its spreadsheet values.
+
+## Read signed-in LinkedIn postings
+
+In the Chrome or Edge profile where you use the tracker, open the browser's Extensions page, enable **Developer mode**, and choose **Load unpacked**. Select the [browser-extension](browser-extension) folder and reload the tracker. The extension supports the default Vite dev and preview addresses on `localhost` or `127.0.0.1`.
+
+Sign in to LinkedIn in that same profile. In the spreadsheet preview, click **Read LinkedIn in background** after the public posting check. The extension opens the selected LinkedIn postings that could not be read publicly, fills in available details, and closes the background tabs. Click **Cancel reading** to stop the batch and keep the details already collected. Review the preview before importing. If LinkedIn has removed a posting or asks you to sign in, the row retains its spreadsheet values.

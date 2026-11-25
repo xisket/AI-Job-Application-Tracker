@@ -24,20 +24,21 @@ export function NotesPanel({ notes, draft, busy, onEdit, onSave, onDelete }: {
           onChange={event => onEdit({ ...draft, text: event.target.value })} />
       </label>
       <div className="actions">
-        <button type="button" disabled={!draft.text.trim()} onClick={onSave}>{draft.id ? 'Update note' : 'Add note'}</button>
-        <button type="button" onClick={() => onEdit(null)}>Cancel note</button>
+        <button type="button" className="note-icon" aria-label={draft.id ? 'Update note' : 'Add note'} title={draft.id ? 'Update note' : 'Add note'}
+          disabled={!draft.text.trim()} onClick={onSave}>✓</button>
+        <button type="button" className="note-icon" aria-label="Cancel note" title="Cancel note" onClick={() => onEdit(null)}>×</button>
       </div>
-    </div> : <div><button type="button" onClick={() => onEdit({ text: '' })}>New note</button></div>}
+    </div> : <div><button type="button" className="note-icon" aria-label="New note" title="New note" onClick={() => onEdit({ text: '' })}>+</button></div>}
     {notes.length === 0 ? <p>No notes yet.</p> : <ul className="note-list">
       {notes.map((note, index) => <li key={note.id}>
         <p>{note.text}</p>
         <div className="actions">
-          <button type="button" disabled={draft !== null} aria-label={`Edit note ${index + 1}`}
-            onClick={() => onEdit({ id: note.id, text: note.text })}>Edit</button>
-          <button type="button" className="danger" disabled={draft !== null} aria-label={`Delete note ${index + 1}`}
-            onClick={() => onDelete(note.id)}>Delete</button>
-          <span className="note-info">
-            <button type="button" aria-label={`Dates for note ${index + 1}`} aria-describedby={`note-dates-${note.id}`}
+          <button type="button" className="note-icon note-action" disabled={draft !== null} aria-label={`Edit note ${index + 1}`} title="Edit note"
+            onClick={() => onEdit({ id: note.id, text: note.text })}>✎</button>
+          <button type="button" className="note-icon note-action danger" disabled={draft !== null} aria-label={`Delete note ${index + 1}`} title="Delete note"
+            onClick={() => onDelete(note.id)}>×</button>
+          <span className="note-info note-action">
+            <button type="button" className="note-icon" aria-label={`Dates for note ${index + 1}`} aria-describedby={`note-dates-${note.id}`}
               onClick={event => event.currentTarget.focus()}>i</button>
             <small className="note-dates" role="tooltip" id={`note-dates-${note.id}`}>
               <span>Created <NoteDate value={note.created} /></span>

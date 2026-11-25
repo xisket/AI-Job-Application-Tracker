@@ -116,6 +116,28 @@ X-Tracker-Request: 1
 GET {{baseUrl}}/api/ai/models
 Accept: application/json
 
+### List recent Ollama requests (200)
+GET {{baseUrl}}/api/ai/activity
+Accept: application/json
+
+### Read an Ollama request (200 if that entry exists)
+# Replace 1 with an ID from the activity list.
+GET {{baseUrl}}/api/ai/activity/1
+Accept: application/json
+
+### Preview a bulk import (200)
+POST {{baseUrl}}/api/application-imports/preview
+X-Tracker-Request: 1
+Content-Type: multipart/form-data; boundary=tracker-sample
+
+--tracker-sample
+Content-Disposition: form-data; name="file"; filename="applications.csv"
+Content-Type: text/csv
+
+Application Date;Contact Email;Contact Phone Number;Company Name;Job Title;Job Url;Resume Name;Question And Answers
+11/24/2026 09:30;;;Example Company;C# Engineer;https://example.com/posting;;Example answer
+--tracker-sample--
+
 ### Read application settings (200)
 GET {{baseUrl}}/api/settings
 Accept: application/json

@@ -7,6 +7,7 @@ export function Calendar({ records, year, from, onOpen }: {
 }) {
   const [month, setMonth] = useState(today().slice(0, 7))
   const [selected, setSelected] = useState('')
+  const [scale, setScale] = useState<'month' | 'year'>('month')
   useEffect(() => {
     setSelected('')
     if (from && (!year || from.startsWith(year))) setMonth(from.slice(0, 7))
@@ -20,34 +21,62 @@ export function Calendar({ records, year, from, onOpen }: {
     grouped.set(key, [...(grouped.get(key) ?? []), record])
   }
   const start = new Date(month + '-01T12:00:00')
-  const gridStart = addDays(month + '-01', -(start.getDay() + 6) % 7)
-  const heading = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(start)
+  const monthName = new Intl.DateTimeFormat(undefined, { month: 'long' })
+  const heading = scale === 'year' ? month.slice(0, 4) : new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(start)
   const format = new Intl.DateTimeFormat(undefined, { dateStyle: 'full' })
-  const changeMonth = (amount: number) => {
-    start.setMonth(start.getMonth() + amount)
+  const navigate = (amount: number) => {
+    start.setMonth(start.getMonth() + (scale === 'year' ? amount * 12 : amount))
     setMonth(dateKey(start).slice(0, 7))
     setSelected('')
   }
 
-  return <section className="calendar" aria-label="Positions calendar">
-    <div className="calendar-header">
-      <button type="button" aria-label="Previous month" onClick={() => changeMonth(-1)}>‹</button>
-      <h2 aria-live="polite">{heading}</h2>
-      <button type="button" aria-label="Next month" onClick={() => changeMonth(1)}>›</button>
-    </div>
-    <div className="calendar-grid">
-      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => <span className="weekday" key={day}>{day}</span>)}
+  function renderDays(period: string, compact = false) {
+    const first = new Date(period + '-01T12:00:00')
+    const gridStart = addDays(period + '-01', -(first.getDay() + 6) % 7)
+    return <div className={compact ? 'calendar-grid calendar-mini-grid' : 'calendar-grid'}>
+      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day =>
+        <span className="weekday" key={day} aria-hidden="true">{compact ? day[0] : day}</span>)}
       {Array.from({ length: 42 }, (_, offset) => {
         const key = addDays(gridStart, offset)
         const count = grouped.get(key)?.length ?? 0
-        return key.startsWith(month) ? <button key={key} type="button" aria-pressed={selected === key}
+        return key.startsWith(period) ? <button key={key} type="button" aria-pressed={selected === key}
+          aria-current={key === currentDay ? 'date' : undefined}
           data-positions={count ? (key < currentDay ? 'past' : 'current') : undefined}
-          aria-label={format.format(new Date(key + 'T12:00:00')) + ', ' + count + ' positions'} onClick={() => setSelected(key)}>
-          <span>{Number(key.slice(8))}</span><strong>{count}</strong>
+          aria-label={format.format(new Date(key + 'T12:00:00')) + ', ' + count + ' positions'} onClick={() => {
+            setSelected(key)
+            if (compact) {
+              setMonth(period)
+              setScale('month')
+            }
+          }}>
+          <span>{Number(key.slice(8))}</span>{!compact && <strong>{count || ''}</strong>}
         </button> : <span key={key} className="calendar-blank" />
       })}
     </div>
-    {selected && <section className="calendar-results">
+  }
+
+  return <section className="calendar" aria-label="Positions calendar">
+    <div className="segments calendar-scales" aria-label="Calendar view">
+      <button type="button" aria-pressed={scale === 'month'} onClick={() => setScale('month')}>Month</button>
+      <button type="button" aria-pressed={scale === 'year'} onClick={() => setScale('year')}>Year</button>
+    </div>
+    <div className="calendar-header">
+      <button type="button" aria-label={`Previous ${scale}`} onClick={() => navigate(-1)}>‹</button>
+      <h2 aria-live="polite">{heading}</h2>
+      <button type="button" aria-label={`Next ${scale}`} onClick={() => navigate(1)}>›</button>
+    </div>
+    {scale === 'month' ? renderDays(month) : <div className="calendar-year">
+      {Array.from({ length: 12 }, (_, index) => {
+        const period = month.slice(0, 4) + '-' + String(index + 1).padStart(2, '0')
+        return <section key={period} className="calendar-month-card">
+          <h3><button type="button" onClick={() => { setMonth(period); setScale('month'); setSelected('') }}>
+            {monthName.format(new Date(period + '-01T12:00:00'))}
+          </button></h3>
+          {renderDays(period, true)}
+        </section>
+      })}
+    </div>}
+    {scale === 'month' && selected && <section className="calendar-results">
       <h3>{format.format(new Date(selected + 'T12:00:00'))}</h3>
       {(grouped.get(selected) ?? []).map(record => <button key={record.job.id} onClick={() => onOpen(record)}>{record.job.role} · {record.job.company}</button>)}
       {!grouped.has(selected) && <p>No positions.</p>}

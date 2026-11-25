@@ -48,7 +48,8 @@ app.Use(async (HttpContext context, RequestDelegate next) =>
     }
 
     if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
-        limit.MaxRequestBodySize = 1_000_000;
+        limit.MaxRequestBodySize = context.Request.Path == "/api/application-imports/preview"
+            ? ApplicationSpreadsheet.MaxFileSize + 1024 * 1024 : 1_000_000;
     await next(context);
 });
 
@@ -94,6 +95,14 @@ applications.MapDelete("/{id:guid}", (Guid id, ApplicationStore store, HttpReque
     .ProducesProblem(412)
     .ProducesProblem(428);
 
+app.MapPost("/api/application-imports/preview", PreviewApplicationImport)
+    .WithTags("Applications")
+    .Accepts<SpreadsheetUpload>("multipart/form-data")
+    .Produces<List<SpreadsheetRow>>()
+    .ProducesProblem(400)
+    .ProducesProblem(413)
+    .ProducesProblem(422);
+
 app.MapPost("/api/posting-imports", async (PostingRequest input, PostingImporter importer, CancellationToken cancel) =>
 {
     try
@@ -113,6 +122,13 @@ app.MapPost("/api/posting-imports", async (PostingRequest input, PostingImporter
     .Produces<ApiError>(422);
 
 app.MapGet("/api/ai", (LocalAi ai) => new AiStatus(ai.Configured)).WithTags("Local AI");
+app.MapGet("/api/ai/activity", (long? before, ApplicationStore store) => store.ListOllamaActivity(before))
+    .WithTags("Local AI");
+app.MapGet("/api/ai/activity/{id:long}", (long id, ApplicationStore store) =>
+    store.FindOllamaActivity(id) is { } entry ? Results.Ok(entry) : Results.NotFound())
+    .WithTags("Local AI")
+    .Produces<OllamaActivityDetail>()
+    .ProducesProblem(404);
 app.MapGet("/api/ai/models", (LocalAi ai, CancellationToken cancel) => ai.ListModels(cancel))
     .WithTags("Local AI")
     .Produces<OllamaModels>()
@@ -132,6 +148,32 @@ app.MapPut("/api/settings/ollama", (OllamaSettings input, LocalAi ai) => ai.Save
     .ProducesProblem(400);
 app.Run();
 
+static async Task<IResult> PreviewApplicationImport(HttpRequest request, CancellationToken cancel)
+{
+    if (!request.HasFormContentType)
+        return Results.Problem("Upload a spreadsheet as multipart form data.", statusCode: 400);
+    try
+    {
+        var form = await request.ReadFormAsync(cancel);
+        var file = form.Files.GetFile("file");
+        if (file is null || file.Length == 0)
+            return Results.Problem("Choose a spreadsheet to preview.", statusCode: 400);
+        if (file.Length > ApplicationSpreadsheet.MaxFileSize)
+            return Results.Problem("Choose a spreadsheet under 10 MB.", statusCode: 413);
+        await using var stream = file.OpenReadStream();
+        return Results.Ok(ApplicationSpreadsheet.Read(stream, file.FileName, cancel));
+    }
+    catch (SpreadsheetImportException error)
+    {
+        return Results.Problem(error.Message, statusCode: 422);
+    }
+    catch (Exception error) when (error is InvalidDataException or FormatException or
+        Microsoft.VisualBasic.FileIO.MalformedLineException or DocumentFormat.OpenXml.Packaging.OpenXmlPackageException or System.Xml.XmlException)
+    {
+        return Results.Problem("The spreadsheet could not be read. Check the format and try again.", statusCode: 422);
+    }
+}
+
 static IResult InvalidJob() => Results.Problem("Invalid application data or ID.", statusCode: 400);
 static IResult MissingVersion() => Results.Problem("Supply the application ETag in If-Match.", statusCode: 428);
 static IResult Changed() => Results.Problem("This application changed in another window. Refresh the list and try again.", statusCode: 412);
@@ -144,5 +186,6 @@ static IResult WithVersion(ApplicationRecord? record, HttpResponse response)
 }
 
 record PostingRequest(string? Url);
+record SpreadsheetUpload(IFormFile File);
 record ApiError(string Error);
 

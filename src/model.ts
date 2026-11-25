@@ -8,13 +8,14 @@ export const extractedFields = {
 } as const
 export const blank = {
   role: '', company: '', location: '', arrangement: '', salary: '', deadline: '',
-  requirements: '', url: '', description: '', posted: '', applied: '', notes: '', next: '', due: '', interview: '',
+  requirements: '', url: '', description: '', descriptionHtml: '', posted: '', applied: '', notes: '', next: '', due: '', interview: '',
   stage: 'Saved' as Stage,
 }
 export type Draft = typeof blank
 export type Entry = { id: string; date: string; kind: string; text: string }
 export type ApplicationNote = { id: string; text: string; created: string | null; updated: string | null }
-export type Job = Draft & { id: string; updated: string; created?: string; history: Entry[]; noteEntries?: ApplicationNote[]; reminders?: Record<string, { done?: boolean; snoozed?: string }> }
+export type Job = Draft & { id: string; updated: string; created?: string; history: Entry[]; companyId?: string | null; companyLogo?: string; noteEntries?: ApplicationNote[]; reminders?: Record<string, { done?: boolean; snoozed?: string }> }
+export type JobWrite = Job & { companyLogoUpdate?: string; companyLogoImport?: string }
 export type RecordItem = { job: Job; etag?: string }
 
 export function applicationNotes(job: Job): ApplicationNote[] {
@@ -37,7 +38,7 @@ export function today() {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
-export function extraction(text: string): Partial<Draft> {
+export function extraction(text: string, allowEmpty = false): Partial<Draft> {
   const parsed: unknown = JSON.parse(text.trim().replace(/^\x60{3}(?:json)?\s*|\s*\x60{3}$/gi, ''))
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('The extraction returned an invalid draft.')
   const fields = parsed as Record<string, unknown>
@@ -49,7 +50,7 @@ export function extraction(text: string): Partial<Draft> {
     if (['deadline', 'posted', 'applied'].includes(key) && (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || !Number.isFinite(Date.parse(clean)) || new Date(clean).toISOString().slice(0, 10) !== clean)) continue
     if (clean) draft[key] = clean.slice(0, extractedFields[key])
   }
-  if (!Object.keys(draft).length) throw new Error('No job details were found. You can fill in the draft manually.')
+  if (!allowEmpty && !Object.keys(draft).length) throw new Error('No job details were found. You can fill in the draft manually.')
   return draft
 }
 
@@ -62,7 +63,7 @@ export function dateKey(date: Date) {
 }
 
 export function positionDate(job: Job) {
-  if (job.applied) return job.applied
+  if (job.applied) return job.applied.slice(0, 10)
   const created = job.created || job.history.find(item => item.kind === 'Added')?.date || job.history[0]?.date || job.updated
   if (/^\d{4}-\d{2}-\d{2}$/.test(created)) return created
   const date = new Date(created)
